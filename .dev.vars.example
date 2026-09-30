@@ -1,0 +1,9 @@
+# Copy to .dev.vars for local preview only. Never commit real values.
+SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+SUPABASE_ANON_KEY="YOUR_PUBLISHABLE_OR_ANON_KEY"
+SUPABASE_SERVICE_ROLE_KEY="YOUR_SECRET_OR_SERVICE_ROLE_KEY"
+CREDENTIAL_ENCRYPTION_KEY="BASE64_ENCODED_32_RANDOM_BYTES"
+APP_URL="https://YOUR_PUBLIC_WEBSITE"
+# Optional teacher-provided NVIDIA access; both values are required.
+# SHARED_NVIDIA_API_KEY="nvapi-..."
+# CLASSROOM_CODE="A_RANDOM_CLASSROOM_CODE"
