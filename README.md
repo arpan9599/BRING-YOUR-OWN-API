@@ -32,6 +32,8 @@ The implementation has local security tests and a successful Worker build. A rea
 
 Generate the encryption key with `node scripts/generate-encryption-key.mjs` and save it in the hosting secret manager. Keep it stable; changing it prevents decrypting existing stored credentials.
 
+Existing installations with the earlier 200-chunk limit: run `supabase/upgrade-workspace-chunks.sql` once to update the database to 500 chunks per workspace. Fresh installations already receive this allowance from `supabase/schema.sql`.
+
 Optional: set **both** `SHARED_NVIDIA_API_KEY` and `CLASSROOM_CODE` as host secrets to use the teacher's key. Students then enter your classroom code instead of getting NVIDIA accounts. They share your request quota. Use a random classroom code, small test groups and staggered uploads.
 
 Do not put server keys in GitHub, `.openai/hosting.json`, frontend variables, or screenshots. Copy `.dev.vars.example` to ignored `.dev.vars` only for local development. Configure the same variables in the production host's secret manager for live use.
@@ -81,7 +83,7 @@ This is a conservative RAG design, not a guarantee of perfect correctness. A mod
 ## Limits
 
 - Text-based PDF, DOCX, TXT and Markdown; 5 MB/file.
-- Up to 300 PDF pages, 220,000 extracted characters and 200 stored chunks per workspace. The chunk cap can be reached first.
+- Up to 300 PDF pages, 220,000 extracted characters and 500 stored chunks per workspace. The chunk cap can be reached first.
 - Scanned PDFs need OCR before uploading.
 - PDF citations use physical page numbers. DOCX/TXT use filenames and quotations.
 - 12 questions/minute per bot; bounded upload and embedding calls.

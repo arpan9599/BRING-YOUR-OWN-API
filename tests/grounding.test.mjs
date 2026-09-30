@@ -6,7 +6,7 @@ test('chunks preserve PDF page attribution and overlap without exceeding bounds'
  const text='important fact '.repeat(350),chunks=chunkPages([{page:17,text},{page:18,text:'Next page.'}]);
  assert.ok(chunks.length>2);assert.ok(chunks.every(c=>c.content.length<=1400));assert.equal(chunks[0].page,17);assert.equal(chunks.at(-1).page,18);assert.ok(chunks[1].content.startsWith(chunks[0].content.slice(-150)));
 });
-test('empty/scanned documents and excessive documents are rejected',()=>{assert.throws(()=>chunkPages([{page:1,text:' '}]),/No readable/);assert.throws(()=>chunkPages([{page:1,text:'x'.repeat(400000)}]),/200 chunks/);});
+test('empty/scanned documents and excessive documents are rejected',()=>{assert.throws(()=>chunkPages([{page:1,text:' '}]),/No readable/);assert.throws(()=>chunkPages([{page:1,text:'x'.repeat(700000)}]),/500 chunks/);});
 test('only exact evidence from retrieved authorized chunks can be cited',()=>{
  const candidate={answerable:true,claims:[{text:'Minimum attendance is 75%.',chunkId:source.id,quote:source.content}]};
  assert.equal(validateClaims(candidate,[source])[0].page,17);

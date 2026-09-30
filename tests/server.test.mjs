@@ -10,6 +10,29 @@ const bot={id:BOT,owner_id:OWNER,telegram_username:'student_bot',telegram_bot_id
 function request(path,body,headers={}){return new Request('https://docbot.test'+path,{method:body?'POST':'GET',headers:{Origin:'https://docbot.test',Authorization:'Bearer user-session','Content-Type':'application/json',...headers},body:body?JSON.stringify(body):undefined});}
 const json=value=>new Response(JSON.stringify(value),{status:200,headers:{'Content-Type':'application/json'}});
 async function mocked(fn,run){const original=globalThis.fetch;globalThis.fetch=fn;try{return await run();}finally{globalThis.fetch=original;}}
+test('a PDF with more than 200 text pages is accepted within the new workspace limit',async()=>{
+ let stored=0;
+ await mocked(async(input,init)=>{const url=String(input);if(url.includes('/auth/v1/user'))return json(authUser);if(url.includes('/bots'))return json(bot);if(url.includes('/consume_request'))return json(true);if(url.includes('/create_document')){const payload=JSON.parse(init.body);stored=payload.p_chunks.length;assert.equal(payload.p_owner_id,OWNER);assert.equal(payload.p_bot_id,BOT);assert.equal(payload.p_chunks.at(-1).page,201);return json(DOC);}throw new Error('Unexpected endpoint');},async()=>{
+  const result=await handleApi(request('/api/documents/init',{title:'Long handbook.pdf',hash:'a'.repeat(64),pages:Array.from({length:201},(_,index)=>({page:index+1,text:'A readable handbook page.'}))}),env);
+  assert.equal(result.status,200);assert.equal((await result.json()).chunks,201);assert.equal(stored,201);
+ });
+});
+test('blank documents and full workspaces return useful input errors without exposing internal errors',async()=>{
+ await mocked(async(input)=>{const url=String(input);if(url.includes('/auth/v1/user'))return json(authUser);if(url.includes('/bots'))return json(bot);if(url.includes('/consume_request'))return json(true);if(url.includes('/create_document'))return new Response(JSON.stringify({code:'P0001',message:'Workspace limit: 500 chunks'}),{status:400,headers:{'Content-Type':'application/json'}});throw new Error('Unexpected endpoint');},async()=>{
+  const base={title:'Handbook.pdf',hash:'a'.repeat(64)};
+  const blank=await handleApi(request('/api/documents/init',{...base,pages:[{page:1,text:' '}]}),env);assert.equal(blank.status,400);assert.match((await blank.json()).error,/No readable text/);
+  const large=await handleApi(request('/api/documents/init',{...base,pages:[{page:1,text:'x'.repeat(220001)}]}),env);assert.equal(large.status,413);assert.match((await large.json()).error,/220,000 characters/);
+  const full=await handleApi(request('/api/documents/init',{...base,pages:[{page:1,text:'Readable content'}]}),env);assert.equal(full.status,400);assert.match((await full.json()).error,/500 chunks.*Delete an older document/);
+ });
+});
+test('document processing creates passage embeddings and marks only the owned document ready',async()=>{
+ let passage=false,updates=0,ready=false;
+ await mocked(async(input,init)=>{const url=new URL(String(input));if(url.pathname==='/auth/v1/user')return json(authUser);if(url.pathname.endsWith('/bots'))return json(bot);if(url.pathname.endsWith('/consume_request'))return json(true);
+  if(url.hostname==='integrate.api.nvidia.com'){const body=JSON.parse(init.body);assert.equal(body.input_type,'passage');assert.equal(body.input.length,2);passage=true;return json({data:body.input.map((_,index)=>({index,embedding:Array(2048).fill(.1)}))});}
+  if(url.pathname.endsWith('/documents')){assert.equal(url.searchParams.get('owner_id'),'eq.'+OWNER);assert.equal(url.searchParams.get('bot_id'),'eq.'+BOT);if(init.method==='PATCH'){assert.equal(JSON.parse(init.body).status,'ready');ready=true;return new Response(null,{status:204});}return json({id:DOC,status:'processing'});}
+  if(url.pathname.endsWith('/document_chunks')){assert.equal(url.searchParams.get('owner_id'),'eq.'+OWNER);assert.equal(url.searchParams.get('bot_id'),'eq.'+BOT);if(init.method==='PATCH'){assert.equal(JSON.parse(init.body).embedding.length,2048);updates++;return new Response(null,{status:204});}if(init.method==='HEAD')return new Response(null,{status:200,headers:{'Content-Range':'0-0/0'}});return json([{id:'chunk-a',content:'First paragraph.'},{id:'chunk-b',content:'Second paragraph.'}]);}throw new Error('Unexpected endpoint');
+ },async()=>{const result=await handleApi(request('/api/documents/process',{id:DOC}),env);assert.equal(result.status,200);assert.deepEqual(await result.json(),{done:true,remaining:0});assert.ok(passage&&ready);assert.equal(updates,2);});
+});
 test('unconfigured website exposes no credentials and rejects uploads',async()=>{
  const config=await(await handleApi(request('/api/config'),{})).json();assert.equal(config.configured,false);assert.equal(config.anonKey,null);
  const result=await handleApi(request('/api/documents/init',{title:'test'}),{});assert.equal(result.status,503);

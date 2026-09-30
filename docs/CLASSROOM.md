@@ -39,7 +39,7 @@ This first version does not provide account recovery or cross-browser workspace 
 
 ## Practical limits
 
-5 MB/file; text PDF, DOCX, TXT, MD; 300 PDF pages; up to 220,000 extracted characters and 200 stored chunks per workspace. Large handbooks may exceed the chunk limit even below the file-size limit. Upload the relevant chapters for the demo. Scanned PDFs need OCR beforehand.
+5 MB/file; text PDF, DOCX, TXT, MD; 300 PDF pages; up to 220,000 extracted characters and 500 stored chunks per workspace. Large handbooks may exceed the chunk limit even below the file-size limit. Upload the relevant chapters for the demo. Scanned PDFs need OCR beforehand.
 
 PDF page numbers refer to physical file pages, which may differ from printed page labels. DOCX/TXT citations show filenames and exact quotations without invented page numbers. Keys are encrypted at rest, but the host controls the server and encryption key; this is not encryption that hides credentials from the host. Excerpts/questions are sent to NVIDIA and bot messages to Telegram. Use public or approved classroom documents.
 

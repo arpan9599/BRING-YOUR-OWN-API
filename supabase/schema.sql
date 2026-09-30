@@ -30,7 +30,7 @@ create table public.documents (
 create table public.document_chunks (
   id uuid primary key default gen_random_uuid(), document_id uuid not null,
   bot_id uuid not null, owner_id uuid not null,
-  chunk_index smallint not null check(chunk_index between 0 and 199),
+  chunk_index smallint not null check(chunk_index between 0 and 499),
   page integer check(page is null or page > 0),
   content text not null check(char_length(content) between 1 and 1400),
   embedding extensions.vector(2048),
@@ -75,17 +75,17 @@ begin
   select id into doc_id from public.documents where bot_id=p_bot_id and file_sha256=p_hash;
   if doc_id is not null then return doc_id; end if;
   n:=jsonb_array_length(p_chunks);
-  if n<1 or n+(select count(*) from public.document_chunks where bot_id=p_bot_id)>200 then raise exception 'Workspace limit: 200 chunks'; end if;
+  if n<1 or n+(select count(*) from public.document_chunks where bot_id=p_bot_id)>500 then raise exception 'Workspace limit: 500 chunks'; end if;
   insert into public.documents(bot_id,owner_id,title,file_sha256) values(p_bot_id,p_owner_id,p_title,p_hash) returning id into doc_id;
   for item in select value from jsonb_array_elements(p_chunks) loop
-    select s into slot from generate_series(0,199) s where not exists(select 1 from public.document_chunks c where c.bot_id=p_bot_id and c.chunk_index=s) order by s limit 1;
+    select s into slot from generate_series(0,499) s where not exists(select 1 from public.document_chunks c where c.bot_id=p_bot_id and c.chunk_index=s) order by s limit 1;
     insert into public.document_chunks(document_id,bot_id,owner_id,chunk_index,page,content)
     values(doc_id,p_bot_id,p_owner_id,slot,(item->>'page')::integer,item->>'content');
   end loop;
   return doc_id;
 end $$;
 
--- 2048 dimensions exceed ordinary vector-index limits; exact scans are bounded to 200 tenant chunks.
+-- 2048 dimensions exceed ordinary vector-index limits; exact scans are bounded to 500 tenant chunks.
 create function public.match_document_chunks(p_bot_id uuid,p_owner_id uuid,query_embedding extensions.vector(2048))
 returns table(id uuid,title text,page integer,content text,similarity double precision)
 language sql stable security invoker set search_path='' as $$

@@ -3,7 +3,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {createClient,type SupabaseClient} from '@supabase/supabase-js';
 import {ArrowRight,BookOpen,Check,ChevronDown,FileText,KeyRound,LoaderCircle,MessageCircle,Send,ShieldCheck,Trash2,Upload,X} from 'lucide-react';
-import {REFUSAL} from '../lib/grounding.mjs';
+import {REFUSAL,MAX_CHUNKS} from '../lib/grounding.mjs';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 type Config={configured:boolean;supabaseUrl:string|null;anonKey:string|null;sharedKey:boolean};
 type Bot={id:string;username:string;status:string;paired:boolean};
@@ -83,7 +83,7 @@ export default function Home(){
           <button className="dropzone" disabled={!bot||!!busy} onClick={()=>fileInput.current?.click()} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(bot&&!busy)upload(e.dataTransfer.files[0]);}}><span className="upload-icon"><Upload size={22}/></span><strong>Choose a document</strong><span>or drag and drop it here</span><small>PDF, DOCX, TXT, MD · up to 5 MB</small></button>
           {!!busy&&!['connection','answer','pairing'].includes(busy)&&<p className="processing" role="status"><LoaderCircle className="spin" size={15}/>{busy}</p>}
           {!!docs.length&&<div className="document-list">{docs.map(doc=><div className="document-row" key={doc.id}><FileText size={19}/><div><strong>{doc.title}</strong><span>{doc.status==='ready'?'Ready for questions':'Processing · resume to finish'}</span></div>{doc.status!=='ready'&&<button className="text-button" disabled={!!busy} onClick={()=>resume(doc.id)}>Resume</button>}<button className="icon-button" aria-label={`Delete ${doc.title}`} disabled={!!busy} onClick={()=>remove(doc)}><Trash2 size={15}/></button></div>)}</div>}
-          <p className="field-note">Text is split into chunks, embedded by NVIDIA, and stored in Supabase. Limit: 200 chunks per workspace.</p>
+          <p className="field-note">Text is split into chunks, embedded by NVIDIA, and stored in Supabase. Limit: {MAX_CHUNKS} chunks per workspace.</p>
         </section>
         <section className="card"><div className="card-heading"><span className={`step ${bot?.paired?'complete':''}`}>{bot?.paired?<Check size={15}/>:3}</span><div><h2>Take it to Telegram</h2><p>Pair one private chat with your assistant.</p></div></div>
           {pairUrl?<a className="primary wide no-margin" href={pairUrl} target="_blank" rel="noreferrer"><MessageCircle size={17}/>Open Telegram and press Start <ArrowRight size={15}/></a>:<button className="secondary wide no-margin" disabled={!bot||!hasReady||!!busy} onClick={pair}>{busy==='pairing'?<LoaderCircle className="spin" size={16}/>:<MessageCircle size={17}/>} {bot?.paired?'Pair another device':'Connect Telegram'} <ArrowRight size={15}/></button>}

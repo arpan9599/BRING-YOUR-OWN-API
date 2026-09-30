@@ -34,7 +34,7 @@ Defaults verified for this implementation:
 
 Older embedding endpoints are deprecated. Switching to a different embedding model requires a compatible schema and re-embedding every document. The hosted embedding endpoint accepts up to 4,096 input tokens; conservative character chunks stay below that even for token-dense text.
 
-Ordinary pgvector vector indexes cap dimensions below this model's 2,048. The classroom version instead uses exact cosine scans after filtering to at most 200 chunks per workspace. For larger production collections, redesign retrieval/indexing, background ingestion, account recovery, monitoring and resource quotas.
+Ordinary pgvector vector indexes cap dimensions below this model's 2,048. The classroom version instead uses exact cosine scans after filtering to at most 500 chunks per workspace. For larger production collections, redesign retrieval/indexing, background ingestion, account recovery, monitoring and resource quotas.
 
 ## Grounding
 
