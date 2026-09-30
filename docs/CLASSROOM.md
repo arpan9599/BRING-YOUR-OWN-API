@@ -14,7 +14,7 @@ Host one website and one Supabase project. Each student has a separate anonymous
 ## Before class
 
 1. Complete the README host setup and run the SQL in a fresh project.
-2. Enable anonymous sign-ins. Supabase's default is 30 new anonymous users per hour per IP; increase it for the class because campus Wi-Fi may share one IP. Confirm project allowances and use appropriate abuse protection.
+2. Enable anonymous sign-ins. Campus Wi-Fi may share one IP, and Supabase limits anonymous sign-ups by IP with a burst capacity of 30 requests. Have students initialize their workspaces before class or in small groups. Check the current [Auth rate limits](https://supabase.com/docs/guides/auth/rate-limits) and available project settings; increasing a sustained limit does not remove the burst limit.
 3. Test the actual NVIDIA key on both endpoints. Hosted trial limits and availability vary; do not promise unlimited free access. A centrally supplied key shares one quota across everyone.
 4. Rehearse with a short text-based PDF containing a specific attendance rule. Verify the actual physical page number. Do not assume your handbook says 75% on page 17.
 5. Prepare one bot and document ahead of time. If the live service is unavailable, the website has a clearly labeled fixed sample walkthrough.

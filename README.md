@@ -19,7 +19,7 @@ The implementation has local security tests and a successful Worker build. A rea
 
 1. Create a fresh [Supabase project](https://supabase.com/dashboard).
 2. Run [supabase/schema.sql](supabase/schema.sql) in its SQL editor.
-3. Enable **anonymous sign-ins** under Authentication → Providers. Increase the anonymous sign-in IP rate limit for a class sharing campus Wi-Fi. The default is 30 new anonymous users/hour/IP. See [official anonymous auth documentation](https://supabase.com/docs/guides/auth/auth-anonymous).
+3. Enable **anonymous sign-ins** under Authentication → Providers. Rehearse sign-ups on campus Wi-Fi: Supabase limits anonymous sign-ins by IP, including a burst capacity of 30 requests. Have students open their workspaces before class or in small groups; check the current [Auth rate limits](https://supabase.com/docs/guides/auth/rate-limits) and available project settings before promising a simultaneous whole-class sign-up. See [official anonymous auth documentation](https://supabase.com/docs/guides/auth/auth-anonymous).
 4. Set these host runtime environment variables:
 
 | Variable | Purpose |

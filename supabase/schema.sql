@@ -1,6 +1,7 @@
 -- Run once in the SQL editor of a NEW Supabase project. Enable anonymous auth too.
 create schema if not exists extensions;
 create extension if not exists vector with schema extensions;
+grant usage on schema extensions to service_role;
 
 create table public.bots (
   id uuid primary key default gen_random_uuid(),
@@ -37,6 +38,10 @@ create table public.document_chunks (
   foreign key(document_id,bot_id,owner_id) references public.documents(id,bot_id,owner_id) on delete cascade
 );
 create index chunks_scope on public.document_chunks(bot_id,owner_id);
+create index documents_owner on public.documents(owner_id);
+create index documents_scope on public.documents(bot_id,owner_id);
+create index chunks_owner on public.document_chunks(owner_id);
+create index chunks_document on public.document_chunks(document_id,bot_id,owner_id);
 create table public.telegram_updates (
   bot_id uuid references public.bots(id) on delete cascade,
   update_id bigint, state text not null default 'working', lease_until timestamptz not null,
