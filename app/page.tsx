@@ -1,9 +1,9 @@
+/* eslint-disable @next/next/no-html-link-for-pages -- Full browser navigation avoids a Vinext Link runtime compatibility failure. */
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {createClient,type SupabaseClient} from '@supabase/supabase-js';
 import {ArrowRight,BookOpen,Check,ChevronDown,FileText,KeyRound,LoaderCircle,MessageCircle,Send,ShieldCheck,Trash2,Upload,X} from 'lucide-react';
 import {REFUSAL} from '../lib/grounding.mjs';
-import Link from 'next/link';
 type Config={configured:boolean;supabaseUrl:string|null;anonKey:string|null;sharedKey:boolean};
 type Bot={id:string;username:string;status:string;paired:boolean};
 type Doc={id:string;title:string;status:string};
@@ -62,7 +62,7 @@ export default function Home(){
   }catch(e){setMessages(m=>[...m,{role:'assistant',text:e instanceof Error?e.message:'Please retry.',error:true}]);}finally{setBusy('');}}
   const hasReady=docs.some(d=>d.status==='ready'),canAsk=sample||hasReady;
   return <div className="app-shell">
-    <header className="topbar"><Link className="brand" href="/"><span className="brand-icon"><BookOpen size={19}/></span>DocBot<span className="brand-light">Lab</span></Link><div className="top-right"><span className="private-tag"><ShieldCheck size={14}/>Private workspace</span><Link href="/setup">Teacher setup <ArrowRight size={14}/></Link></div></header>
+    <header className="topbar"><a className="brand" href="/"><span className="brand-icon"><BookOpen size={19}/></span>DocBot<span className="brand-light">Lab</span></a><div className="top-right"><span className="private-tag"><ShieldCheck size={14}/>Private workspace</span><a href="/setup">Teacher setup <ArrowRight size={14}/></a></div></header>
     <main><div className="intro"><div><p className="eyebrow">BUILD YOUR OWN KNOWLEDGE ASSISTANT</p><h1>Your documents. Your answers.</h1><p className="subtitle">Add a document. Ask a question. Take your assistant to Telegram.</p></div><button className="sample-button" onClick={walkthrough}>Try sample walkthrough <ArrowRight size={16}/></button></div>
       {!ready&&<div className="banner"><LoaderCircle className="spin" size={18}/>Opening your workspace…</div>}
       {config&&!config.configured&&<div className="banner setup-banner"><KeyRound size={19}/><div><strong>One-time host setup needed</strong><span>Connect Supabase to enable live uploads and answers. Students won’t need a Supabase account.</span></div><a href="/setup">View setup <ArrowRight size={15}/></a></div>}
