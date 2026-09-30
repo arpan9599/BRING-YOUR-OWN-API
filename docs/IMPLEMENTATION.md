@@ -28,7 +28,7 @@ Delivery is at least once: if Telegram accepts a message but recording its compl
 
 Defaults verified for this implementation:
 
-- Chat: `nvidia/nemotron-3.5-lightning-30b-a3b` ([model catalog](https://build.nvidia.com/nvidia/nemotron-3.5-lightning-30b-a3b)).
+- Chat: `nvidia/nemotron-3-ultra-550b-a55b`, with the hosted API's `reasoning_effort: none` for direct JSON answers ([API reference](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-ultra-550b-a55b-infer)). Both answer generation and the second evidence check use this mode; validation and source quotation checks still apply.
 - Embeddings: `nvidia/nemotron-3-embed-1b`, 2,048 dimensions, `input_type: passage/query` ([API reference](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-embed-1b-infer)).
 - Fixed endpoint: `https://integrate.api.nvidia.com/v1`. API keys need Public API Endpoints access ([NVIDIA key guide](https://docs.nvidia.com/rag/latest/api-key.html)).
 

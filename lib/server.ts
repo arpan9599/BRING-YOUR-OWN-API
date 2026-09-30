@@ -50,7 +50,7 @@ async function embeddings(key:string,input:string[],input_type:'query'|'passage'
   return input.map((_,index)=>validateEmbedding(data.data.find((item:{index:number})=>item.index===index)?.embedding));
 }
 async function chat(key:string,system:string,user:string) {
-  const data=await upstream('https://integrate.api.nvidia.com/v1/chat/completions',{model:CHAT_MODEL,messages:[{role:'system',content:system},{role:'user',content:user}],temperature:0,max_tokens:1400,reasoning_budget:256,stream:false},{Authorization:`Bearer ${key}`}) as {choices:{message:{content:string};finish_reason:string}[]};
+  const data=await upstream('https://integrate.api.nvidia.com/v1/chat/completions',{model:CHAT_MODEL,messages:[{role:'system',content:system},{role:'user',content:user}],temperature:0,max_tokens:1400,reasoning_effort:'none',stream:false},{Authorization:`Bearer ${key}`}) as {choices:{message:{content:string};finish_reason:string}[]};
   const choice=data.choices?.[0];
   if(!choice?.message?.content || choice.finish_reason==='length')throw new HttpError(503,'The model returned an incomplete answer. Please try a shorter question.');
   try{return parseJson(choice.message.content);}catch{throw new HttpError(503,'The model response could not be verified. Please retry.');}
