@@ -4,6 +4,7 @@ import {useEffect,useRef,useState} from 'react';
 import {createClient,type SupabaseClient} from '@supabase/supabase-js';
 import {ArrowRight,BookOpen,Check,ChevronDown,FileText,KeyRound,LoaderCircle,MessageCircle,Send,ShieldCheck,Trash2,Upload,X} from 'lucide-react';
 import {REFUSAL} from '../lib/grounding.mjs';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 type Config={configured:boolean;supabaseUrl:string|null;anonKey:string|null;sharedKey:boolean};
 type Bot={id:string;username:string;status:string;paired:boolean};
 type Doc={id:string;title:string;status:string};
@@ -18,7 +19,7 @@ async function extract(file:File){
   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',buffer))).map(b=>b.toString(16).padStart(2,'0')).join('');
   const ext=file.name.split('.').pop()?.toLowerCase();let pages:Pages;
   if(ext==='pdf'){
-    const pdfjs=await import('pdfjs-dist');pdfjs.GlobalWorkerOptions.workerSrc=new URL('pdfjs-dist/build/pdf.worker.min.mjs',import.meta.url).href;
+    const pdfjs=await import('pdfjs-dist');pdfjs.GlobalWorkerOptions.workerSrc=pdfWorkerUrl;
     const pdf=await pdfjs.getDocument({data:new Uint8Array(buffer)}).promise;
     try{if(pdf.numPages>300)throw new Error('Choose a PDF with 300 pages or fewer.');pages=[];for(let n=1;n<=pdf.numPages;n++){const page=await pdf.getPage(n);const content=await page.getTextContent();pages.push({page:n,text:content.items.map(item=>'str' in item?item.str:'').join(' ')});page.cleanup();}}finally{await pdf.destroy();}
   }else if(ext==='docx'){const mammoth=await import('mammoth/mammoth.browser');pages=[{page:null,text:(await mammoth.extractRawText({arrayBuffer:buffer})).value}];}
