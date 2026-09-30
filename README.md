@@ -92,13 +92,8 @@ Architecture, isolation, delivery recovery and current model references are docu
 
 ## GitHub repository
 
-This directory is an independent Git repository. The requested destination is the private repository `arpan9599/document-telegram-bot`. Publishing to that account requires its GitHub connection or authenticated GitHub CLI.
+Source: [arpan9599/BRING-YOUR-OWN-API](https://github.com/arpan9599/BRING-YOUR-OWN-API), a private repository. Its owner must grant GitHub access before others can clone it.
 
-If configuring manually with GitHub CLI:
+Hosted classroom website: [DocBot Lab](https://docbot-lab-arpan.claw-co-28.chatgpt.site/). Students can open this public website without repository access.
 
-```sh
-gh auth login
-gh repo create arpan9599/document-telegram-bot --private --source=. --remote=origin --push
-```
-
-Run this only when signed into the intended GitHub account and the repository does not already exist. For an existing repository, add its remote and push the local `main` branch normally. The separate Sites source remote belongs to hosting and is not a repository under your GitHub account.
+The separate Sites source remote is used for hosted deployments. Follow the teacher setup above when running your own copy.
