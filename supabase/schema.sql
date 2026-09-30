@@ -94,7 +94,8 @@ language sql stable security invoker set search_path='' as $$
     join public.documents d on d.id=c.document_id and d.bot_id=c.bot_id and d.owner_id=c.owner_id
     where c.bot_id=p_bot_id and c.owner_id=p_owner_id and d.status='ready' and c.embedding is not null
   ) select id,title,page,content,1-(embedding operator(extensions.<=>) query_embedding)
-  from scoped where 1-(embedding operator(extensions.<=>) query_embedding)>=0.35
+  -- Similarity ranks candidates; exact quotations and evidence checks decide answerability.
+  from scoped
   order by embedding operator(extensions.<=>) query_embedding limit 6;
 $$;
 create function public.claim_telegram_update(p_bot_id uuid,p_update_id bigint)

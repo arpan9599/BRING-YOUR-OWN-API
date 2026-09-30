@@ -34,6 +34,8 @@ Generate the encryption key with `node scripts/generate-encryption-key.mjs` and 
 
 Existing installations with the earlier 200-chunk limit: run `supabase/upgrade-workspace-chunks.sql` once to update the database to 500 chunks per workspace. Fresh installations already receive this allowance from `supabase/schema.sql`.
 
+Existing installations: run `supabase/upgrade-document-retrieval.sql` once to remove the old 0.35 similarity cutoff, which could discard relevant passages. Fresh installations already include the corrected retrieval function. Answers still require verified source quotations.
+
 Optional: set **both** `SHARED_NVIDIA_API_KEY` and `CLASSROOM_CODE` as host secrets to use the teacher's key. Students then enter your classroom code instead of getting NVIDIA accounts. They share your request quota. Use a random classroom code, small test groups and staggered uploads.
 
 Do not put server keys in GitHub, `.openai/hosting.json`, frontend variables, or screenshots. Copy `.dev.vars.example` to ignored `.dev.vars` only for local development. Configure the same variables in the production host's secret manager for live use.

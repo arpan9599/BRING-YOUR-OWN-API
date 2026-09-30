@@ -6,6 +6,8 @@ Browser extraction (PDF.js / Mammoth / plain text) → page-aware chunks (1,400 
 
 Question → NVIDIA query embedding → tenant-filtered cosine search → up to six excerpts → Nemotron JSON claims with exact quotes → deterministic citation validation → second model evidence check → browser/Telegram response.
 
+Search ranks the six nearest excerpts without a fixed similarity cutoff. Similarity scores vary with query length and wording; the original 0.35 cutoff discarded relevant cost-of-attendance passages scoring around 0.27. Candidate retrieval does not authorize an answer: the model must identify relevant evidence, quote it exactly, and pass the second evidence check. Short topic phrases request a document-based definition or explanation. Internal diagnostics record only the rejection stage and counts/scores, never question text, excerpts or credentials.
+
 ## Isolation
 
 Supabase anonymous auth creates an authenticated unique user, persisted in the browser. Server APIs validate the JWT using `auth.getUser`, then derive owner IDs exclusively from that verified user. Service-role access is server-only; RLS separately permits authenticated users to read only their own documents/chunks. Bot credentials, webhook jobs and rate counters have no browser policies. Composite foreign keys enforce bot/document/owner consistency.
