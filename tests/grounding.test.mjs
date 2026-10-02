@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {chunkPages,encryptSecret,decryptSecret,validateClaims,validateEmbedding,DIMENSIONS,parseJson} from '../lib/grounding.mjs';
+import {chunkPages,encryptSecret,decryptSecret,validateClaims,validateClaimsDetailed,validateEmbedding,DIMENSIONS,parseJson} from '../lib/grounding.mjs';
 const source={id:'own-source',title:'Handbook.pdf',page:17,content:'Students must maintain a minimum attendance of 75% in each course.'};
 test('chunks preserve PDF page attribution and overlap without exceeding bounds',()=>{
  const text='important fact '.repeat(350),chunks=chunkPages([{page:17,text},{page:18,text:'Next page.'}]);
@@ -14,6 +14,17 @@ test('only exact evidence from retrieved authorized chunks can be cited',()=>{
  assert.equal(validateClaims({...candidate,claims:[{...candidate.claims[0],quote:'The minimum attendance is 50%.'}]},[source]),null);
  assert.equal(validateClaims({answerable:false,claims:[]},[source]),null);
  assert.equal(validateClaims({answerable:true,claims:[{text:'Guess',chunkId:source.id,quote:'75%'}]},[source]),null);
+});
+test('citation diagnostics preserve strict boundaries and contain no document or answer text',()=>{
+ const longSource={...source,content:'a'.repeat(1401)};
+ const candidate=(quote='a'.repeat(12),text='Supported answer.')=>({answerable:true,claims:[{text,chunkId:source.id,quote}]});
+ for(const length of [11,12,1400,1401])assert.equal(validateClaimsDetailed(candidate('a'.repeat(length)),[longSource]).issue?.reason??null,[12,1400].includes(length)?null:'quote_length');
+ for(const length of [700,701])assert.equal(validateClaimsDetailed(candidate(undefined,'t'.repeat(length)),[longSource]).issue?.reason??null,length===700?null:'text_length');
+ for(const count of [0,1,4,5])assert.equal(validateClaimsDetailed({answerable:true,claims:Array(count).fill(candidate().claims[0])},[longSource]).issue?.reason??null,[1,4].includes(count)?null:'invalid_count');
+ const bad={...candidate().claims[0],quote:'A fabricated private sentence.'};
+ const rejected=validateClaimsDetailed({answerable:true,claims:[candidate().claims[0],bad]},[longSource]);
+ assert.equal(rejected.claims,null);assert.deepEqual(rejected.issue,{reason:'quote_not_exact',claimIndex:1});assert.ok(!JSON.stringify(rejected).includes(bad.quote));
+ assert.equal(validateClaimsDetailed({answerable:true,claims:[{...bad,chunkId:'another-owner'}]},[longSource]).issue.reason,'unknown_chunk');
 });
 test('encrypted credentials are bound to their workspace and authenticated',async()=>{
  const key=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));

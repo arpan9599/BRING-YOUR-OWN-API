@@ -76,7 +76,7 @@ The browser remembers the workspace, so repeated logins or key entry are not nee
 
 ## What “document-only” means here
 
-Retrieval searches only the owner's ready documents. A model answer must cite an actual retrieved chunk and an exact quote, and pass a second evidence check. No retrieval or invalid/unsupported evidence leads to:
+Retrieval searches only the owner's ready documents. A model answer must cite an actual retrieved chunk and an exact quote, and pass a second evidence check. A malformed citation gets one fresh generation attempt using the same excerpts. If that still fails, the website shows a verification error and asks you to retry. Missing or unsupported evidence leads to:
 
 > I couldn't find this information in the uploaded documents.
 
@@ -96,7 +96,7 @@ Architecture, isolation, delivery recovery and current model references are docu
 
 ## GitHub repository
 
-Source: [arpan9599/BRING-YOUR-OWN-API](https://github.com/arpan9599/BRING-YOUR-OWN-API), a private repository. Its owner must grant GitHub access before others can clone it.
+Source: [arpan9599/Plug-And-Play-LLM](https://github.com/arpan9599/Plug-And-Play-LLM), a private repository. Its owner must grant GitHub access before others can clone it.
 
 Hosted classroom website: [DocBot Lab](https://docbot-lab-arpan.claw-co-28.chatgpt.site/). Students can open this public website without repository access.
 
