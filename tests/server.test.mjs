@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {handleApi} from '../lib/server.ts';
-import {encryptSecret,sha256,REFUSAL} from '../lib/grounding.mjs';
+import {encryptSecret,sha256,REFUSAL,CHAT_MODEL,FALLBACK_CHAT_MODEL,EMBEDDING_MODEL} from '../lib/grounding.mjs';
 const OWNER='11111111-1111-4111-8111-111111111111',BOT='22222222-2222-4222-8222-222222222222',DOC='33333333-3333-4333-8333-333333333333';
 const key=btoa(String.fromCharCode(...new Uint8Array(32).fill(9)));
 const env={SUPABASE_URL:'https://test.supabase.co',SUPABASE_ANON_KEY:'public-test',SUPABASE_SERVICE_ROLE_KEY:'secret-test',CREDENTIAL_ENCRYPTION_KEY:key,APP_URL:'https://docbot.test'};
@@ -139,6 +139,55 @@ test('NVIDIA auth, quota, asynchronous responses and fetch failures are never re
   let calls=0;
   await mocked(async(input)=>{const url=String(input);if(url.includes('/auth/v1/user'))return json(authUser);if(url.includes('/bots'))return json(bot);if(url.includes('/consume_request'))return json(true);if(url.includes('/embeddings')){calls++;if(failure==='timeout')throw new DOMException('Timeout','TimeoutError');return new Response(null,{status:failure});}throw new Error('Unexpected endpoint');},async()=>{const res=await handleApi(request('/api/chat',{question:'Attendance requirement?'}),env);assert.equal(res.status,[401,403].includes(failure)?400:failure===429?429:503);assert.equal(calls,1);});
  }
+});
+
+test('NVIDIA chat fallback stays active through citation repair and evidence verification',async()=>{
+ const source={id:'owned-source',title:'Handbook.pdf',page:17,content:'Students must maintain a minimum attendance of 75%.',similarity:.7};
+ for(const scenario of ['generation','verification','citation-repair','unsupported','invalid-json']){
+  const models=[];let failed=false,repairIssued=false;
+  await mocked(async(input,init)=>{const url=String(input);if(url.includes('/auth/v1/user'))return json(authUser);if(url.includes('/bots'))return json(bot);if(url.includes('/consume_request'))return json(true);if(url.includes('/match_document_chunks'))return json([source]);
+   if(url.includes('/embeddings')){assert.equal(JSON.parse(init.body).model,EMBEDDING_MODEL);return json({data:[{index:0,embedding:Array(2048).fill(.1)}]});}
+   if(url.includes('/chat/completions')){
+    const body=JSON.parse(init.body),verifying=body.messages[0].content.startsWith('Check evidence;');models.push(body.model);assert.equal(body.reasoning_effort,'none');
+    if(!failed&&(scenario!=='verification'||verifying)){failed=true;return new Response(null,{status:503});}
+    if(scenario==='invalid-json')return json({choices:[{finish_reason:'stop',message:{content:'invalid json'}}]});
+    const repairing=scenario==='citation-repair'&&!verifying&&!repairIssued;repairIssued ||= repairing;
+    const output=verifying?{supported:scenario!=='unsupported'}:{answerable:true,claims:[{text:'Minimum attendance is 75%.',chunkId:source.id,quote:repairing?'75%':source.content}]};
+    return json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(output)}}]});
+   }throw new Error('Unexpected endpoint');
+  },async()=>{
+   const result=await handleApi(request('/api/chat',{question:'Attendance requirement?'}),env),answer=await result.json();
+   assert.equal(result.status,scenario==='invalid-json'?503:200);
+   assert.deepEqual(models,scenario==='verification'?[CHAT_MODEL,CHAT_MODEL,FALLBACK_CHAT_MODEL]:scenario==='citation-repair'?[CHAT_MODEL,FALLBACK_CHAT_MODEL,FALLBACK_CHAT_MODEL,FALLBACK_CHAT_MODEL]:scenario==='invalid-json'?[CHAT_MODEL,FALLBACK_CHAT_MODEL]:[CHAT_MODEL,FALLBACK_CHAT_MODEL,FALLBACK_CHAT_MODEL]);
+   if(scenario==='unsupported')assert.equal(answer.answer,REFUSAL);
+   else if(scenario!=='invalid-json'){assert.equal(answer.grounded,true);assert.equal(answer.sources[0].quote,source.content);}
+  });
+ }
+});
+
+test('chat credentials, quotas, pending results, timeouts and malformed output never trigger fallback',async()=>{
+ const source={id:'owned-source',title:'Handbook.pdf',page:17,content:'Students must maintain a minimum attendance of 75%.',similarity:.7};
+ for(const failure of [401,403,429,202,'timeout','malformed','incomplete']){
+  const models=[];
+  await mocked(async(input,init)=>{const url=String(input);if(url.includes('/auth/v1/user'))return json(authUser);if(url.includes('/bots'))return json(bot);if(url.includes('/consume_request'))return json(true);if(url.includes('/match_document_chunks'))return json([source]);if(url.includes('/embeddings'))return json({data:[{index:0,embedding:Array(2048).fill(.1)}]});
+   if(url.includes('/chat/completions')){models.push(JSON.parse(init.body).model);if(failure==='timeout')throw new Error('Fetch failed');if(typeof failure==='number')return new Response(null,{status:failure});return json({choices:[{finish_reason:failure==='incomplete'?'length':'stop',message:{content:'invalid json'}}]});}throw new Error('Unexpected endpoint');
+  },async()=>{const result=await handleApi(request('/api/chat',{question:'Attendance?'}),env);assert.equal(result.status,[401,403].includes(failure)?400:failure===429?429:503);assert.deepEqual(models,[CHAT_MODEL]);});
+ }
+});
+
+test('the connection test can use one NVIDIA chat fallback before saving credentials',async()=>{
+ const models=[];let saved=false,registered=false;
+ await mocked(async(input,init)=>{
+  const url=new URL(String(input));
+  if(url.pathname==='/auth/v1/user')return json(authUser);
+  if(url.pathname.endsWith('/bots')){if(init.method==='POST'){saved=true;return new Response(null,{status:204});}if(init.method==='PATCH')return new Response(null,{status:204});return json(url.searchParams.has('telegram_bot_id')?null:bot);}
+  if(url.hostname==='integrate.api.nvidia.com'){
+   const body=JSON.parse(init.body);if(url.pathname.endsWith('/embeddings')){assert.equal(body.model,EMBEDDING_MODEL);return json({data:[{index:0,embedding:Array(2048).fill(.1)}]});}
+   models.push(body.model);if(models.length===1)return new Response(null,{status:503});assert.ok(!saved);return json({choices:[{finish_reason:'stop',message:{content:'{"ok":true}'}}]});
+  }
+  if(url.hostname==='api.telegram.org'){if(url.pathname.endsWith('/getMe'))return json({ok:true,result:{id:bot.telegram_bot_id,is_bot:true,username:bot.telegram_username}});if(url.pathname.endsWith('/getWebhookInfo'))return json({ok:true,result:{url:env.APP_URL+'/api/telegram/'+BOT}});if(url.pathname.endsWith('/setWebhook')){assert.ok(saved);registered=true;return json({ok:true,result:{}});}}
+  throw new Error('Unexpected endpoint');
+ },async()=>{const result=await handleApi(request('/api/bot',{nvidiaKey:'test-nvidia',telegramToken:'1234567:fake-telegram-token-for-tests-only'}),env);assert.equal(result.status,200);assert.deepEqual(models,[CHAT_MODEL,FALLBACK_CHAT_MODEL]);assert.ok(saved&&registered);});
 });
 
 test('NVIDIA retries keep their call deadline and citation repair respects the total answer deadline',async()=>{

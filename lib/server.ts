@@ -1,11 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { CHAT_MODEL, EMBEDDING_MODEL, MAX_CHUNKS, DocumentInputError, REFUSAL, chunkPages, cleanDocumentText, decryptSecret, encryptSecret, parseJson, randomSecret, sha256, validateClaimsDetailed, validateEmbedding } from './grounding.mjs';
+import { CHAT_MODEL, FALLBACK_CHAT_MODEL, EMBEDDING_MODEL, MAX_CHUNKS, DocumentInputError, REFUSAL, chunkPages, cleanDocumentText, decryptSecret, encryptSecret, parseJson, randomSecret, sha256, validateClaimsDetailed, validateEmbedding } from './grounding.mjs';
 
 export type RuntimeEnv = { SUPABASE_URL?:string; SUPABASE_ANON_KEY?:string; SUPABASE_SERVICE_ROLE_KEY?:string; CREDENTIAL_ENCRYPTION_KEY?:string; APP_URL?:string; SHARED_NVIDIA_API_KEY?:string; CLASSROOM_CODE?:string };
 type Bot = {id:string;owner_id:string;telegram_bot_id:number;telegram_username:string;nvidia_key_encrypted:string;telegram_token_encrypted:string;webhook_secret_sha256:string;pending_webhook_secret_sha256:string|null;claim_sha256:string|null;paired_chat_id:number|null;status:string};
 type Source = {id:string;title:string;page:number|null;content:string;similarity:number};
-type AIBudget = {deadline:number;retriesRemaining:number};
+type AIBudget = {deadline:number;retriesRemaining:number;chatModel?:string};
 class HttpError extends Error { constructor(public status:number,message:string){super(message);} }
 class VerificationError extends HttpError { constructor(){super(503,'The generated answer could not be verified. Please retry your question.');} }
 const uuid = z.string().uuid();
@@ -36,7 +36,7 @@ async function getBot(client:SupabaseClient,ownerId:string):Promise<Bot> {
 async function limited(client:SupabaseClient,bot:Bot,kind:string,limit:number) {
   if(!check(await client.rpc('consume_request',{p_bot_id:bot.id,p_kind:kind,p_limit:limit})))throw new HttpError(429,'Please wait a minute before trying again.');
 }
-async function upstream(url:string,body:unknown,headers:Record<string,string>={},timeout=22_000,budget?:AIBudget) {
+async function upstream(url:string,body:unknown,headers:Record<string,string>={},timeout=22_000,budget?:AIBudget,retryBody?:()=>unknown) {
   const deadline=Math.min(Date.now()+timeout,budget?.deadline??Infinity);
   while(true){
   const remaining=deadline-Date.now();
@@ -46,11 +46,15 @@ async function upstream(url:string,body:unknown,headers:Record<string,string>={}
   if(!res.ok || res.status===202){
     const nvidia=url.startsWith('https://integrate.api.nvidia.com/v1/');
     const retry=!!(nvidia && budget && budget.retriesRemaining>0 && [500,502,503,504].includes(res.status) && Date.now()<deadline);
-    if(nvidia)console.info('ai_service_failure',{service:'nvidia',status:res.status,retry});
-    if(retry){budget!.retriesRemaining--;await res.body?.cancel().catch(()=>{});continue;}
+    if(nvidia){
+      const selected=body&&typeof body==='object'&&'model' in body?body.model:null;
+      const model=typeof selected==='string'&&[CHAT_MODEL,FALLBACK_CHAT_MODEL,EMBEDDING_MODEL].includes(selected)?selected:'unknown';
+      console.info('ai_service_failure',{service:'nvidia',operation:url.endsWith('/embeddings')?'embedding':'chat',model,status:res.status,retry});
+    }
+    if(retry){budget!.retriesRemaining--;await res.body?.cancel().catch(()=>{});if(retryBody)body=retryBody();continue;}
     if(res.status===401 || res.status===403)throw new HttpError(400,'The API key or bot token was rejected. Check its permissions and try again.');
     if(res.status===429)throw new HttpError(429,'The service has reached its request limit. Please wait and retry.');
-    throw new HttpError(503,'The external service is unavailable. Please retry shortly.');
+    throw new HttpError(503,nvidia?'NVIDIA is temporarily unavailable. Please retry shortly.':'The external service is unavailable. Please retry shortly.');
   }
   return res.json();
   }
@@ -61,10 +65,15 @@ async function embeddings(key:string,input:string[],input_type:'query'|'passage'
   return input.map((_,index)=>validateEmbedding(data.data.find((item:{index:number})=>item.index===index)?.embedding));
 }
 async function chat(key:string,system:string,user:string,budget?:AIBudget) {
-  const data=await upstream('https://integrate.api.nvidia.com/v1/chat/completions',{model:CHAT_MODEL,messages:[{role:'system',content:system},{role:'user',content:user}],temperature:0,max_tokens:1400,reasoning_effort:'none',stream:false},{Authorization:`Bearer ${key}`},budget?40_000:22_000,budget) as {choices:{message:{content:string};finish_reason:string}[]};
+  const activeBudget:AIBudget=budget??{deadline:Date.now()+22_000,retriesRemaining:1};
+  let model=activeBudget.chatModel??CHAT_MODEL;
+  const body=()=>({model,messages:[{role:'system',content:system},{role:'user',content:user}],temperature:0,max_tokens:1400,reasoning_effort:'none',stream:false});
+  // Use the existing retry allowance for another NVIDIA chat model. Embeddings never switch models.
+  const retryBody=model===CHAT_MODEL?()=>{model=FALLBACK_CHAT_MODEL;return body();}:undefined;
+  const data=await upstream('https://integrate.api.nvidia.com/v1/chat/completions',body(),{Authorization:`Bearer ${key}`},budget?40_000:22_000,activeBudget,retryBody) as {choices:{message:{content:string};finish_reason:string}[]};
   const choice=data.choices?.[0];
   if(!choice?.message?.content || choice.finish_reason==='length')throw new HttpError(503,'The model returned an incomplete answer. Please try a shorter question.');
-  try{return parseJson(choice.message.content);}catch{throw new HttpError(503,'The model response could not be verified. Please retry.');}
+  try{const result=parseJson(choice.message.content);activeBudget.chatModel=model;return result;}catch{throw new HttpError(503,'The model response could not be verified. Please retry.');}
 }
 async function telegram(token:string,method:string,body:unknown) {
   const data=await upstream(`https://api.telegram.org/bot${token}/${method}`,body,{},10_000) as {ok:boolean;result:{id:number;is_bot:boolean;username:string;url:string}};

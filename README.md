@@ -89,7 +89,7 @@ This is a conservative RAG design, not a guarantee of perfect correctness. A mod
 - Scanned PDFs need OCR before uploading.
 - PDF citations use physical page numbers. DOCX/TXT use filenames and quotations.
 - 12 questions/minute per bot; bounded upload and embedding calls.
-- Answer generation allows up to 40 seconds per call, within a 90-second answer budget. One NVIDIA 500/502/503/504 retry is shared across the answer's AI calls; authentication, rate-limit and timeout failures are not retried automatically.
+- Answer generation allows up to 40 seconds per call, within a 90-second AI budget. One NVIDIA 500/502/503/504 retry is shared across the answer's AI calls. For chat, that retry switches from Nemotron Ultra to Nemotron Super, which stays active through citation repair and verification for that answer. Embedding retries retain the same embedding model. Authentication, rate-limit and timeout failures are not retried automatically. The connection test has its own bounded chat retry.
 - Free service quotas are shared and can change. This is a classroom prototype; load-test the intended class size.
 - Telegram delivery is at least once; a message can be duplicated if sending succeeds but recording completion fails.
 
