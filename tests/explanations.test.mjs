@@ -21,7 +21,7 @@ async function scenario({question='Explain Prelude in easy language with example
   if(url.pathname.endsWith('/match_document_chunks')){assert.equal(body.p_owner_id,OWNER);assert.equal(body.p_bot_id,BOT);return Response.json(chunks);}
   if(url.pathname.endsWith('/chat/completions')){
    calls.push(body);const verifying=body.messages[0].content.startsWith('Check evidence;');
-   return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(verifying?{supported:verify}:generate)}}]});
+   return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(verifying?{factsSupported:verify,topicRelevant:verify}:generate)}}]});
   }
   if(url.pathname.endsWith('/claim_telegram_update'))return Response.json({state:'claimed',lease_token:'lease',payload:null,next_part:0});
   if(url.pathname.endsWith('/telegram_updates')){if(body.payload)saved.push(body.payload);return Response.json([{update_id:90}]);}
