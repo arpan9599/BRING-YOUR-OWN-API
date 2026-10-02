@@ -108,3 +108,36 @@ test('Telegram delivers an exhausted citation verification error once and comple
   if(url.includes('/sendMessage')){assert.ok(saved);sends++;assert.match(JSON.parse(init.body).text,/could not be verified/);return json({ok:true,result:{}});}throw new Error('Unexpected endpoint');
  },async()=>{const result=await handleApi(request('/api/telegram/'+BOT,{update_id:10,message:{chat:{id:42,type:'private'},text:'What is the attendance requirement?'}},{'X-Telegram-Bot-Api-Secret-Token':'webhook-secret'}),env);assert.equal(result.status,200);assert.equal(chatCalls,2);assert.equal(sends,1);assert.ok(completed);});
 });
+
+test('NVIDIA server retries are shared across answer calls and still require evidence verification',async()=>{
+ const source={id:'owned-source',title:'Handbook.pdf',page:17,content:'Students must maintain a minimum attendance of 75%.',similarity:.7};
+ const generated={answerable:true,claims:[{text:'Minimum attendance is 75%.',chunkId:source.id,quote:source.content}]};
+ for(const scenario of ['generation-recovers','generation-exhausted','embedding-consumes-budget','verification-recovers']){
+  let embeddingCalls=0,chatCalls=0;
+  await mocked(async(input,init)=>{const url=String(input);if(url.includes('/auth/v1/user'))return json(authUser);if(url.includes('/bots'))return json(bot);if(url.includes('/consume_request'))return json(true);if(url.includes('/match_document_chunks'))return json([source]);
+   if(url.includes('/embeddings')){embeddingCalls++;if(scenario==='embedding-consumes-budget'&&embeddingCalls===1)return new Response(null,{status:503});return json({data:[{index:0,embedding:Array(2048).fill(.1)}]});}
+   if(url.includes('/chat/completions')){chatCalls++;const verifying=JSON.parse(init.body).messages[0].content.startsWith('Check evidence;');if(scenario==='generation-exhausted'||scenario==='embedding-consumes-budget'||(scenario==='generation-recovers'&&chatCalls===1)||(scenario==='verification-recovers'&&chatCalls===2))return new Response(null,{status:503});return json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(verifying?{supported:true}:generated)}}]});}throw new Error('Unexpected endpoint');
+  },async()=>{const res=await handleApi(request('/api/chat',{question:'Attendance requirement?'}),env),answer=await res.json();const success=scenario.endsWith('recovers');assert.equal(res.status,success?200:503);assert.equal(chatCalls,success?3:scenario==='generation-exhausted'?2:1);assert.equal(embeddingCalls,scenario==='embedding-consumes-budget'?2:1);if(success){assert.equal(answer.grounded,true);assert.equal(answer.sources[0].quote,source.content);}});
+ }
+});
+
+test('NVIDIA auth, quota, asynchronous responses and fetch failures are never retried',async()=>{
+ for(const failure of [401,403,429,202,'timeout']){
+  let calls=0;
+  await mocked(async(input)=>{const url=String(input);if(url.includes('/auth/v1/user'))return json(authUser);if(url.includes('/bots'))return json(bot);if(url.includes('/consume_request'))return json(true);if(url.includes('/embeddings')){calls++;if(failure==='timeout')throw new DOMException('Timeout','TimeoutError');return new Response(null,{status:failure});}throw new Error('Unexpected endpoint');},async()=>{const res=await handleApi(request('/api/chat',{question:'Attendance requirement?'}),env);assert.equal(res.status,[401,403].includes(failure)?400:failure===429?429:503);assert.equal(calls,1);});
+ }
+});
+
+test('NVIDIA retries keep their call deadline and citation repair respects the total answer deadline',async()=>{
+ const quote='Students must maintain a minimum attendance of 75%.',source={id:'owned-source',title:'Handbook.pdf',page:17,content:quote,similarity:.7};
+ const originalNow=Date.now,originalTimeout=AbortSignal.timeout;let now=1800000000000,lastTimeout=0,chatCalls=0,mode='http-retry',timeouts=[];
+ Date.now=()=>now;AbortSignal.timeout=milliseconds=>{lastTimeout=milliseconds;return originalTimeout.call(AbortSignal,milliseconds);};
+ try{await mocked(async(input,init)=>{const url=String(input);if(url.includes('/auth/v1/user'))return json(authUser);if(url.includes('/bots'))return json(bot);if(url.includes('/consume_request'))return json(true);if(url.includes('/match_document_chunks'))return json([source]);if(url.includes('/embeddings')){timeouts.push(lastTimeout);if(mode==='answer-deadline')now+=20000;return json({data:[{index:0,embedding:Array(2048).fill(.1)}]});}
+  if(url.includes('/chat/completions')){chatCalls++;timeouts.push(lastTimeout);if(mode==='http-retry'&&chatCalls===1){now+=5000;return new Response(null,{status:503});}const verifying=JSON.parse(init.body).messages[0].content.startsWith('Check evidence;');if(mode==='answer-deadline')now+=chatCalls===1?39000:chatCalls===2?20000:0;const generated={answerable:true,claims:[{text:'Minimum attendance is 75%.',chunkId:source.id,quote:mode==='answer-deadline'&&chatCalls===1?'75%':quote}]};return json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(verifying?{supported:true}:generated)}}]});}throw new Error('Unexpected endpoint');
+ },async()=>{let res=await handleApi(request('/api/chat',{question:'Attendance?'}),env);assert.equal(res.status,200);assert.deepEqual(timeouts,[22000,40000,35000,40000]);mode='answer-deadline';chatCalls=0;timeouts=[];res=await handleApi(request('/api/chat',{question:'Attendance?'}),env);assert.equal(res.status,200);assert.deepEqual(timeouts,[22000,40000,31000,11000]);});
+ }finally{Date.now=originalNow;AbortSignal.timeout=originalTimeout;}
+});
+
+test('Telegram send failures do not use the NVIDIA HTTP retry',async()=>{
+ let sends=0;await mocked(async(input)=>{const url=String(input);if(url.includes('/bots'))return json(bot);if(url.includes('/claim_telegram_update'))return json({state:'claimed',lease_token:'lease',payload:null,next_part:0});if(url.includes('/telegram_updates'))return json([{update_id:11}]);if(url.includes('/sendMessage')){sends++;return new Response(null,{status:503});}throw new Error('Unexpected endpoint');},async()=>{const res=await handleApi(request('/api/telegram/'+BOT,{update_id:11,message:{chat:{id:999,type:'private'},text:'hi'}},{'X-Telegram-Bot-Api-Secret-Token':'webhook-secret'}),env);assert.equal(res.status,503);assert.equal(sends,1);});
+});
