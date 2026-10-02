@@ -5,7 +5,7 @@ import {encryptSecret,sha256,REFUSAL,ILLUSTRATION_LABEL} from '../lib/grounding.
 const OWNER='11111111-1111-4111-8111-111111111111',BOT='22222222-2222-4222-8222-222222222222';
 const key=btoa(String.fromCharCode(...new Uint8Array(32).fill(9)));
 const env={SUPABASE_URL:'https://test.supabase.co',SUPABASE_ANON_KEY:'public-test',SUPABASE_SERVICE_ROLE_KEY:'secret-test',CREDENTIAL_ENCRYPTION_KEY:key,APP_URL:'https://docbot.test'};
-const bot={id:BOT,owner_id:OWNER,paired_chat_id:42,webhook_secret_sha256:await sha256('webhook-secret'),nvidia_key_encrypted:await encryptSecret(key,'test-nvidia',OWNER),telegram_token_encrypted:await encryptSecret(key,'1234567:test-token',OWNER)};
+const bot={id:BOT,owner_id:OWNER,status:'connected',telegram_bot_id:1234567,paired_chat_id:42,webhook_secret_sha256:await sha256('webhook-secret'),nvidia_key_encrypted:await encryptSecret(key,'test-nvidia',OWNER),telegram_token_encrypted:await encryptSecret(key,'1234567:test-token',OWNER)};
 const source={id:'owned-prelude',title:'Handbook.pdf',page:21,similarity:.7,content:'The Prelude. This handbook gives students guidelines for academic and personal conduct. Students are expected to develop value-based conduct and emotional stability.'};
 const facts=[{text:'The Prelude introduces the handbook and its guidance for student behaviour.',chunkId:source.id,quote:'The Prelude. This handbook gives students guidelines for academic and personal conduct.'}];
 const illustration={text:'Imagine a new student reading the opening section to understand why responsible behaviour matters.',claimIndex:0};
@@ -52,4 +52,11 @@ test('examples cannot rescue missing evidence, absent topics, fabricated citatio
  for(const text of ['The college actually requires all students to pay a fictional new fee.','Imagine that value-based conduct means breaking the college rules.']){
   const result=await scenario({generate:{answerable:true,claims:facts,illustration:{text,claimIndex:0}},verify:false});assert.equal(result.body.answer,REFUSAL);assert.deepEqual(result.body.sources,[]);assert.equal(result.body.illustration,null);
  }
+});
+test('situational questions apply sourced rules without inventing penalties or unrelated answers',async()=>{
+ const rule={id:'owned-session-rule',title:'Invented training manual',page:3,similarity:.4,content:'No shouting or pushing during sessions. Report session rule breaches to the organizer.'};
+ const claims=[{text:'The training manual bans shouting and pushing during sessions.',chunkId:rule.id,quote:'No shouting or pushing during sessions.'},{text:'Report session rule breaches to the organizer.',chunkId:rule.id,quote:'Report session rule breaches to the organizer.'}];
+ const good=await scenario({question:'If I had a fight during a session, what should I do?',chunks:[rule],generate:{answerable:true,claims}});assert.equal(good.status,200);assert.equal(good.body.grounded,true);assert.equal(good.body.sources.length,2);assert.match(good.calls[0].messages[0].content,/hypothetical situation/);assert.match(good.calls[1].messages[0].content,/Reject invented contacts, procedures, punishments/);
+ const invented=await scenario({question:'What happens after a fight?',chunks:[rule],generate:{answerable:true,claims:[{...claims[0],text:'You will automatically be expelled.'}]},verify:false});assert.equal(invented.body.answer,REFUSAL);
+ const unrelated=await scenario({question:'How do I bake a cake?',chunks:[rule],generate:{answerable:false,claims:[]}});assert.equal(unrelated.body.answer,REFUSAL);
 });

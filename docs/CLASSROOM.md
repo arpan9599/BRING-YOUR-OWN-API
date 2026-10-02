@@ -23,7 +23,7 @@ Host one website and one Supabase project. Each student has a separate anonymous
 ## During class
 
 1. Project the same website link students will open.
-2. Show masked NVIDIA and Telegram fields. Explain that each student creates their own Telegram bot via `/newbot` in BotFather. Never share your bot token on the projector.
+2. Show masked NVIDIA and Telegram fields. Each student reuses their own bot token; `/newbot` in BotFather is needed only for the first bot. Never share your bot token on the projector.
 3. Connect a workspace. This verifies the NVIDIA chat/embedding endpoints and Telegram token, and registers the HTTPS webhook.
 4. Upload the handbook. Explain: extract text → chunks → NVIDIA passage embeddings → Supabase vectors.
 5. Ask an attendance question in the browser. Expand its quotation and check the PDF page.
@@ -35,7 +35,7 @@ Host one website and one Supabase project. Each student has a separate anonymous
 
 No website sign-in screen is needed. Supabase creates an anonymous identity once, and the browser persists/refreshes its session. Return using the same browser profile. Telegram normally remains signed in, and the API key and bot token are entered once per workspace.
 
-This first version does not provide account recovery or cross-browser workspace transfer. Clearing browser storage, using incognito or changing devices creates a new workspace. A bot already assigned to the old workspace cannot be claimed by a different anonymous user; use a fresh BotFather bot or ask the host to remove/reset the old workspace after verifying ownership. A student who needs recovery should retain their browser session. The teacher can reset abandoned workspaces from Supabase.
+Use the same browser and profile to return without entering keys again. Closing the website or Telegram app keeps the bot running and the chat paired. Use **Open my Telegram bot** to continue. Clearing site storage, using incognito or changing browsers creates a new anonymous workspace. Reuse the same token and confirm **Reconnect this bot here**; previous documents and NVIDIA keys stay private in their original workspace. Add your own key/documents and pair the chat in the new workspace. **Disconnect Telegram** releases the binding without deleting the current workspace's files or saved NVIDIA key. Lost anonymous document workspaces cannot be recovered by supplying only a Telegram token.
 
 ## Practical limits
 

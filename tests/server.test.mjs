@@ -181,6 +181,9 @@ test('the connection test can use one NVIDIA chat fallback before saving credent
   const url=new URL(String(input));
   if(url.pathname==='/auth/v1/user')return json(authUser);
   if(url.pathname.endsWith('/bots')){if(init.method==='POST'){saved=true;return new Response(null,{status:204});}if(init.method==='PATCH')return new Response(null,{status:204});return json(url.searchParams.has('telegram_bot_id')?null:bot);}
+  if(url.pathname.endsWith('/reserve_bot_connection')){saved=true;return json({lease_token:'lease',moved:false});}
+  if(url.pathname.endsWith('/finish_bot_connection'))return json(true);
+  if(url.pathname.endsWith('/release_bot_connection'))return json(null);
   if(url.hostname==='integrate.api.nvidia.com'){
    const body=JSON.parse(init.body);if(url.pathname.endsWith('/embeddings')){assert.equal(body.model,EMBEDDING_MODEL);return json({data:[{index:0,embedding:Array(2048).fill(.1)}]});}
    models.push(body.model);if(models.length===1)return new Response(null,{status:503});assert.ok(!saved);return json({choices:[{finish_reason:'stop',message:{content:'{"ok":true}'}}]});

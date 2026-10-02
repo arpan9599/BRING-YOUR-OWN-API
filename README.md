@@ -36,6 +36,8 @@ Existing installations with the earlier 200-chunk limit: run `supabase/upgrade-w
 
 Existing installations: run `supabase/upgrade-document-retrieval.sql` once to remove the old 0.35 similarity cutoff, which could discard relevant passages. Fresh installations already include the corrected retrieval function. Answers still require verified source quotations.
 
+Existing installations: run `supabase/upgrade-bot-reconnection.sql` once before deploying the bot reconnect/disconnect routes. Fresh installations include it in `supabase/schema.sql`.
+
 Optional: set **both** `SHARED_NVIDIA_API_KEY` and `CLASSROOM_CODE` as host secrets to use the teacher's key. Students then enter your classroom code instead of getting NVIDIA accounts. They share your request quota. Use a random classroom code, small test groups and staggered uploads.
 
 Do not put server keys in GitHub, `.openai/hosting.json`, frontend variables, or screenshots. Copy `.dev.vars.example` to ignored `.dev.vars` only for local development. Configure the same variables in the production host's secret manager for live use.
@@ -66,13 +68,13 @@ This project uses React with the Vinext/Cloudflare Worker starter. The productio
 
 1. Open the shared website link in your own browser profile.
 2. Get a [NVIDIA API key](https://build.nvidia.com/) with Public API Endpoints access, OR enter the teacher's classroom code.
-3. In Telegram, open [BotFather](https://t.me/BotFather), send `/newbot`, and copy the token. Every student uses a different bot.
+3. Reuse your existing Telegram bot token. If you have no bot, open [BotFather](https://t.me/BotFather), send `/newbot`, and copy its token. Each student uses their own bot.
 4. Paste the key and token into the website; click **Create my workspace**.
 5. Upload a short document and wait for **Ready**. If interrupted, click **Resume**.
 6. Ask a document question in the browser and check its quotation.
 7. Click **Connect Telegram**, follow the private pairing link, and press **Start**.
 
-The browser remembers the workspace, so repeated logins or key entry are not needed. Students do not need Supabase, GitHub or ChatGPT accounts. Clearing browser data, using incognito, or switching devices creates a new workspace. Account recovery and workspace transfer are not included in this first version. See [classroom runbook](docs/CLASSROOM.md).
+The same browser and profile remembers the workspace, so repeated logins or key entry are not needed. Students do not need Supabase, GitHub or ChatGPT accounts. Closing the website or Telegram app keeps the bot connected. Use **Open my Telegram bot** to return to an already paired chat. Clearing site data, using incognito or changing browsers creates a new workspace: reuse the same bot token and confirm **Reconnect this bot here**. Only the Telegram connection moves; the previous PDFs and NVIDIA key stay private in their original workspace. Upload documents and pair the private chat in the new workspace. **Disconnect Telegram** releases the binding while preserving the current workspace's documents and NVIDIA key. Recovery of a lost anonymous document workspace is not included. See [classroom runbook](docs/CLASSROOM.md).
 
 ## What “document-only” means here
 

@@ -18,6 +18,10 @@ AES-256-GCM encrypts keys with a random IV and binds ciphertext to the owner ID.
 
 Telegram uses a unique bot per workspace, a hashed webhook secret, and a one-use 256-bit private pairing link. Only the paired private chat can retrieve document content. A new pairing invalidates the earlier pairing. One Telegram token supports one webhook, so existing integrations require an explicit replacement choice.
 
+Reconnecting a bot from another anonymous workspace requires a validated Telegram token, a new owner's verified NVIDIA credentials, and an explicit reconnect choice. The service-role-only, SECURITY INVOKER connection RPCs preserve the old bot row and all document ownership while clearing its Telegram binding, encrypted token, pairing, webhook hashes and queued replies. A 45-second reservation serializes webhook registration; finalization must match the reservation and pending hash. Failed/ambiguous webhook changes retain that reservation until expiry. Before each Telegram reply, the server rechecks the current binding, webhook generation and paired chat. A message already accepted by Telegram cannot be recalled. The disconnect route releases only the current owner's binding and deletes its webhook only when it still points here. Closing a browser tab never disconnects a bot.
+
+Browser initialization is reused across React remounts and, where Web Locks are available, serialized across tabs before anonymous sign-in. The same storage key preserves existing browser sessions. A token proving control of Telegram never recovers another owner's documents or NVIDIA key.
+
 ## Ingestion and delivery recovery
 
 SQL reserves chunk slots atomically under a bot-row lock. Embeddings are processed in batches of five. A document becomes searchable only after all vectors are stored. Interrupted uploads remain visible with a Resume button; deleting a document cascades its chunks.
@@ -42,6 +46,8 @@ Ordinary pgvector vector indexes cap dimensions below this model's 2,048. The cl
 ## Grounding
 
 Retrieved documents are untrusted data, including embedded instructions. A model must produce at most four claims, each with a real retrieved chunk ID and an exact supporting quote. Invalid citations and unsuccessful verification fail closed. Quotations shorter than 12 characters are rejected, which can cause abstention for short table cells. Similarity is a retrieval heuristic, not a correctness score. The second verifier is also a model; this reduces errors but does not guarantee entailment or defeat every prompt injection.
+
+Situational questions may apply documented rules and reporting steps to a relevant hypothetical scenario. The model may not invent contacts, procedures, punishments, outside advice, or current validity for a historical directory entry. Source quotation and evidence checks still apply.
 
 Definitions and faithful plain-language explanations are permitted from those quotations. For an explicit illustrative-example request, the server permits one separately structured `illustration` (up to 700 characters) tied to a validated claim by its zero-based `claimIndex`. The same verifier checks that it is a consistent fictional teaching scenario rather than an unsupported real fact, institutional policy, numerical rule or advice. The server adds a fixed “Illustrative example (fictional):” label to the browser answer and a separate durable Telegram part; factual citations never present it as a document quotation. Empty/unsupported factual answers cannot become answerable through an illustration. Unrequested, negative, or requests for actual documented examples do not permit a fictional illustration. No extra model pass or deadline is added.
 
