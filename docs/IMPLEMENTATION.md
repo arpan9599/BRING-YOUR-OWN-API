@@ -43,6 +43,8 @@ Ordinary pgvector vector indexes cap dimensions below this model's 2,048. The cl
 
 Retrieved documents are untrusted data, including embedded instructions. A model must produce at most four claims, each with a real retrieved chunk ID and an exact supporting quote. Invalid citations and unsuccessful verification fail closed. Quotations shorter than 12 characters are rejected, which can cause abstention for short table cells. Similarity is a retrieval heuristic, not a correctness score. The second verifier is also a model; this reduces errors but does not guarantee entailment or defeat every prompt injection.
 
+Definitions and faithful plain-language explanations are permitted from those quotations. For an explicit illustrative-example request, the server permits one separately structured `illustration` (up to 700 characters) tied to a validated claim by its zero-based `claimIndex`. The same verifier checks that it is a consistent fictional teaching scenario rather than an unsupported real fact, institutional policy, numerical rule or advice. The server adds a fixed “Illustrative example (fictional):” label to the browser answer and a separate durable Telegram part; factual citations never present it as a document quotation. Empty/unsupported factual answers cannot become answerable through an illustration. Unrequested, negative, or requests for actual documented examples do not permit a fictional illustration. No extra model pass or deadline is added.
+
 The sample walkthrough is fixed content and uses no NVIDIA calls, database, uploads or Telegram registration. It is labeled explicitly in the UI. Do not present it as a live RAG test.
 
 ## Primary setup references

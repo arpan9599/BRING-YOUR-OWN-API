@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {chunkPages,cleanDocumentText,encryptSecret,decryptSecret,validateClaims,validateClaimsDetailed,validateEmbedding,DIMENSIONS,parseJson} from '../lib/grounding.mjs';
+import {chunkPages,cleanDocumentText,encryptSecret,decryptSecret,validateClaims,validateClaimsDetailed,validateAnswerDetailed,requestsIllustration,validateEmbedding,DIMENSIONS,parseJson} from '../lib/grounding.mjs';
 const source={id:'own-source',title:'Handbook.pdf',page:17,content:'Students must maintain a minimum attendance of 75% in each course.'};
 test('chunks preserve PDF page attribution and overlap without exceeding bounds',()=>{
  const text='important fact '.repeat(350),chunks=chunkPages([{page:17,text},{page:18,text:'Next page.'}]);
@@ -41,6 +41,18 @@ test('citation diagnostics preserve strict boundaries and contain no document or
  const rejected=validateClaimsDetailed({answerable:true,claims:[candidate().claims[0],bad]},[longSource]);
  assert.equal(rejected.claims,null);assert.deepEqual(rejected.issue,{reason:'quote_not_exact',claimIndex:1});assert.ok(!JSON.stringify(rejected).includes(bad.quote));
  assert.equal(validateClaimsDetailed({answerable:true,claims:[{...bad,chunkId:'another-owner'}]},[longSource]).issue.reason,'unknown_chunk');
+});
+
+test('illustrations require an explicit request, an existing sourced claim and bounded structure',()=>{
+ for(const question of ['explain Prelude with example','Give me a simple example','Explain using an analogy','make example for this concept'])assert.equal(requestsIllustration(question),true);
+ for(const question of ['meaning of Prelude','do not give an example','explain without any examples','give an actual example from the document','Give an example from the handbook','Show an example documented in the uploaded file','Explain with an example in this PDF','what does example mean?'])assert.equal(requestsIllustration(question),false);
+ const candidate={answerable:true,claims:[{text:'Minimum attendance is 75%.',chunkId:source.id,quote:source.content}],illustration:{text:'Imagine a student following the attendance rule.',claimIndex:0}};
+ assert.equal(validateAnswerDetailed(candidate,[source],true).illustration.claimIndex,0);
+ assert.equal(validateAnswerDetailed(candidate,[source],false).issue.reason,'unexpected_illustration');
+ assert.equal(validateAnswerDetailed({...candidate,illustration:null},[source],true).issue.reason,'missing_illustration');
+ for(const illustration of [{text:'Example.'},{text:'Example.',claimIndex:1},{text:'Example.',claimIndex:-1},{text:'Example.',claimIndex:.5},{text:'x'.repeat(701),claimIndex:0}])assert.equal(validateAnswerDetailed({...candidate,illustration},[source],true).claims,null);
+ assert.equal(validateAnswerDetailed({...candidate,claims:[]},[source],true).claims,null);
+ assert.equal(validateAnswerDetailed({...candidate,claims:[{...candidate.claims[0],quote:'An invented quotation.'}]},[source],true).issue.reason,'quote_not_exact');
 });
 test('encrypted credentials are bound to their workspace and authenticated',async()=>{
  const key=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));

@@ -80,6 +80,8 @@ Retrieval searches only the owner's ready documents. A model answer must cite an
 
 > I couldn't find this information in the uploaded documents.
 
+You can ask for definitions or explanations in easy language. Facts still need exact source quotations and an evidence check. An explicit request such as “explain Prelude with an example” can add one **Illustrative example (fictional)**, checked against a sourced concept. That example is separate from the quoted handbook content and cannot introduce a new college policy, numerical requirement or unsupported real-world fact. Both the website and Telegram include the label. Requests for actual documented examples still require evidence in the files.
+
 This is a conservative RAG design, not a guarantee of perfect correctness. A model can still misinterpret quoted evidence or decline an answerable question. Read the quotations before relying on an answer.
 
 ## Limits
