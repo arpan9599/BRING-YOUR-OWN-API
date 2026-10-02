@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { CHAT_MODEL, EMBEDDING_MODEL, MAX_CHUNKS, DocumentInputError, REFUSAL, chunkPages, decryptSecret, encryptSecret, parseJson, randomSecret, sha256, validateClaimsDetailed, validateEmbedding } from './grounding.mjs';
+import { CHAT_MODEL, EMBEDDING_MODEL, MAX_CHUNKS, DocumentInputError, REFUSAL, chunkPages, cleanDocumentText, decryptSecret, encryptSecret, parseJson, randomSecret, sha256, validateClaimsDetailed, validateEmbedding } from './grounding.mjs';
 
 export type RuntimeEnv = { SUPABASE_URL?:string; SUPABASE_ANON_KEY?:string; SUPABASE_SERVICE_ROLE_KEY?:string; CREDENTIAL_ENCRYPTION_KEY?:string; APP_URL?:string; SHARED_NVIDIA_API_KEY?:string; CLASSROOM_CODE?:string };
 type Bot = {id:string;owner_id:string;telegram_bot_id:number;telegram_username:string;nvidia_key_encrypted:string;telegram_token_encrypted:string;webhook_secret_sha256:string;pending_webhook_secret_sha256:string|null;claim_sha256:string|null;paired_chat_id:number|null;status:string};
@@ -223,7 +223,7 @@ export async function handleApi(request:Request,env:RuntimeEnv):Promise<Response
     }
     if(url.pathname==='/api/documents/init'){
       await limited(client,bot,'upload',6);
-      const input=z.object({title:z.string().trim().min(1).max(255),hash:z.string().regex(/^[a-f0-9]{64}$/),pages:z.array(z.object({page:z.number().int().min(1).max(300).nullable(),text:z.string().max(400_000)})).max(300)}).parse(data);
+      const input=z.object({title:z.string().max(255).transform(cleanDocumentText).pipe(z.string().trim().min(1).max(255)),hash:z.string().regex(/^[a-f0-9]{64}$/),pages:z.array(z.object({page:z.number().int().min(1).max(300).nullable(),text:z.string().max(400_000)})).max(300)}).parse(data);
       if(input.pages.reduce((total,page)=>total+page.text.length,0)>220_000)throw new HttpError(413,'This document contains more than 220,000 characters. Upload a shorter document or split it into chapters.');
       const chunks=chunkPages(input.pages);
       const created=await client.rpc('create_document',{p_bot_id:bot.id,p_owner_id:ownerId,p_title:input.title,p_hash:input.hash,p_chunks:chunks});

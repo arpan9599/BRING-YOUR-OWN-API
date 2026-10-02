@@ -3,7 +3,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {createClient,type SupabaseClient} from '@supabase/supabase-js';
 import {ArrowRight,BookOpen,Check,ChevronDown,FileText,KeyRound,LoaderCircle,MessageCircle,Send,ShieldCheck,Trash2,Upload,X} from 'lucide-react';
-import {REFUSAL,MAX_CHUNKS} from '../lib/grounding.mjs';
+import {REFUSAL,MAX_CHUNKS,cleanDocumentText} from '../lib/grounding.mjs';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 type Config={configured:boolean;supabaseUrl:string|null;anonKey:string|null;sharedKey:boolean};
 type Bot={id:string;username:string;status:string;paired:boolean};
@@ -25,6 +25,7 @@ async function extract(file:File){
   }else if(ext==='docx'){const mammoth=await import('mammoth/mammoth.browser');pages=[{page:null,text:(await mammoth.extractRawText({arrayBuffer:buffer})).value}];}
   else if(ext==='txt'||ext==='md')pages=[{page:null,text:new TextDecoder().decode(buffer)}];
   else throw new Error('Choose a PDF, DOCX, TXT, or Markdown document.');
+  pages=pages.map(p=>({...p,text:cleanDocumentText(p.text)}));
   if(!pages.some(p=>p.text.trim()))throw new Error('No readable text found. Scanned PDFs need OCR before uploading.');
   if(pages.reduce((total,p)=>total+p.text.length,0)>220_000)throw new Error('Too much text for the classroom limit. Choose a shorter document.');
   return {pages,hash};

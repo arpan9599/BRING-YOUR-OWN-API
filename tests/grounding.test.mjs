@@ -1,12 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {chunkPages,encryptSecret,decryptSecret,validateClaims,validateClaimsDetailed,validateEmbedding,DIMENSIONS,parseJson} from '../lib/grounding.mjs';
+import {chunkPages,cleanDocumentText,encryptSecret,decryptSecret,validateClaims,validateClaimsDetailed,validateEmbedding,DIMENSIONS,parseJson} from '../lib/grounding.mjs';
 const source={id:'own-source',title:'Handbook.pdf',page:17,content:'Students must maintain a minimum attendance of 75% in each course.'};
 test('chunks preserve PDF page attribution and overlap without exceeding bounds',()=>{
  const text='important fact '.repeat(350),chunks=chunkPages([{page:17,text},{page:18,text:'Next page.'}]);
  assert.ok(chunks.length>2);assert.ok(chunks.every(c=>c.content.length<=1400));assert.equal(chunks[0].page,17);assert.equal(chunks.at(-1).page,18);assert.ok(chunks[1].content.startsWith(chunks[0].content.slice(-150)));
 });
 test('empty/scanned documents and excessive documents are rejected',()=>{assert.throws(()=>chunkPages([{page:1,text:' '}]),/No readable/);assert.throws(()=>chunkPages([{page:1,text:'x'.repeat(700000)}]),/500 chunks/);});
+
+test('PDF null characters are removed while multilingual text and page citations survive',()=>{
+ const text='पहला café 😀 first\u0000second';
+ assert.deepEqual(chunkPages([{page:17,text}]),[{page:17,content:'पहला café 😀 firstsecond'}]);
+ assert.throws(()=>chunkPages([{page:1,text:'\u0000 \n\u0000'}]),/No readable/);
+ assert.equal(cleanDocumentText('valid 😀\uD800'), 'valid 😀\uFFFD');
+});
+
+test('chunk and overlap boundaries preserve whole Unicode characters',()=>{
+ for(const prefix of [1399,1249]){
+  const chunks=chunkPages([{page:1,text:'x'.repeat(prefix)+'😀'+'y'.repeat(1800)}]);
+  assert.ok(chunks.length>1);
+  assert.ok(chunks.every(c=>c.content.length<=1400&&c.content.isWellFormed()));
+  assert.ok(chunks.some(c=>c.content.includes('😀')));
+ }
+});
 test('only exact evidence from retrieved authorized chunks can be cited',()=>{
  const candidate={answerable:true,claims:[{text:'Minimum attendance is 75%.',chunkId:source.id,quote:source.content}]};
  assert.equal(validateClaims(candidate,[source])[0].page,17);

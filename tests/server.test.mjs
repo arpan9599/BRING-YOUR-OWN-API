@@ -25,6 +25,19 @@ test('blank documents and full workspaces return useful input errors without exp
   const full=await handleApi(request('/api/documents/init',{...base,pages:[{page:1,text:'Readable content'}]}),env);assert.equal(full.status,400);assert.match((await full.json()).error,/500 chunks.*Delete an older document/);
  });
 });
+
+test('document upload cleans PostgreSQL-incompatible text before the tenant-scoped RPC',async()=>{
+ let stored=0;
+ await mocked(async(input,init)=>{const url=String(input);if(url.includes('/auth/v1/user'))return json(authUser);if(url.includes('/bots'))return json(bot);if(url.includes('/consume_request'))return json(true);if(url.includes('/create_document')){
+  const body=JSON.parse(init.body);stored++;assert.equal(body.p_owner_id,OWNER);assert.equal(body.p_bot_id,BOT);assert.equal(body.p_title,'Handbook.pdf');assert.deepEqual(body.p_chunks,[{page:17,content:'Attendance café 😀 is 75%.'}]);assert.ok(!init.body.includes('\\u0000'));return json(DOC);
+ }throw new Error('Unexpected endpoint');},async()=>{
+  const base={title:'Hand\u0000book.pdf',hash:'a'.repeat(64)};
+  const upload=await handleApi(request('/api/documents/init',{...base,pages:[{page:17,text:'Attendance café 😀\u0000 is 75%.'}]}),env);assert.equal(upload.status,200);
+  const blank=await handleApi(request('/api/documents/init',{...base,pages:[{page:1,text:'\u0000'}]}),env);assert.equal(blank.status,400);
+  const title=await handleApi(request('/api/documents/init',{...base,title:'\u0000',pages:[{page:1,text:'Readable text.'}]}),env);assert.equal(title.status,400);
+  assert.equal(stored,1);
+ });
+});
 test('document processing creates passage embeddings and marks only the owned document ready',async()=>{
  let passage=false,updates=0,ready=false;
  await mocked(async(input,init)=>{const url=new URL(String(input));if(url.pathname==='/auth/v1/user')return json(authUser);if(url.pathname.endsWith('/bots'))return json(bot);if(url.pathname.endsWith('/consume_request'))return json(true);
